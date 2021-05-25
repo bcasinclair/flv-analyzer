@@ -36,8 +36,7 @@ int main(int argc, char** argv) {
   init_analyzer(in_file);
 
   analyze();
-
-  printf("\nFinished analyzing\n");
+  printf("{}]}");
   
  
 

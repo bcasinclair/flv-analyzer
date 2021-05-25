@@ -89,22 +89,21 @@ uchar get_bits(uchar value, uchar start_bit, uchar count) {
 }
 
 void print_header(struct flv_header* flv_header) {
-
-  printf("FLV file version %u\n", flv_header->version);
-  printf("  Contains audio tags: ");
+  printf("{\"FLV file version\": %u,\n", flv_header->version);
+  printf("  \"Contains audio tags\": ");
   if(flv_header->type_flags & (1 << FLV_HEADER_AUDIO_BIT)) {
-    printf("Yes\n");
+    printf("true,\n");
   } else {
-    printf("No\n");
+    printf("false\n");
   }
-  printf("  Contains video tags: ");
+  printf("  \"Contains video tags\": ");
   if(flv_header->type_flags & (1 << FLV_HEADER_VIDEO_BIT)) {
-    printf("Yes\n");
+    printf("true,\n");
   } else {
-    printf("No\n");
+    printf("false,\n");
   }
-  printf("  Data offset: %lu\n",  (unsigned long) flv_header->data_offset);
-
+  printf("  \"Data offset\": %lu,\n",  (unsigned long) flv_header->data_offset);
+  printf("\"frames\":[");
 }
 
 size_t fread_1(uint8_t* ptr) {
@@ -149,13 +148,13 @@ struct audio_tag* read_audio_tag(struct flv_tag* flv_tag) {
   tag->sound_rate = get_bits(byte, 2, 2);
   tag->sound_size = get_bits(byte, 1, 1);
   tag->sound_type = get_bits(byte, 0, 1);
+  
+  printf("   ,\"AudioData\": {\n");
+  printf("    \"Sound format\": \"%u - %s\",\n", tag->sound_format, sound_formats[tag->sound_format]);
+  printf("    \"Sound rate\": \"%u - %s\",\n", tag->sound_rate, sound_rates[tag->sound_rate]);
 
-  printf("  Audio tag:\n");
-  printf("    Sound format: %u - %s\n", tag->sound_format, sound_formats[tag->sound_format]);
-  printf("    Sound rate: %u - %s\n", tag->sound_rate, sound_rates[tag->sound_rate]);
-
-  printf("    Sound size: %u - %s\n", tag->sound_size, sound_sizes[tag->sound_size]);
-  printf("    Sound type: %u - %s\n", tag->sound_type, sound_types[tag->sound_type]);
+  printf("    \"Sound size\": \"%u - %s\",\n", tag->sound_size, sound_sizes[tag->sound_size]);
+  printf("    \"Sound type\": \"%u - %s\"}\n", tag->sound_type, sound_types[tag->sound_type]);
 
   tag->data = malloc((size_t) flv_tag->data_size-1);
   count = fread(tag->data, 1, (size_t) flv_tag->data_size-1, in);
@@ -175,9 +174,9 @@ struct video_tag* read_video_tag(struct flv_tag* flv_tag) {
   tag->frame_type = get_bits(byte, 4, 4);
   tag->codec_id = get_bits(byte, 0, 4);
 
-  printf("  Video tag:\n");
-  printf("    Frame type: %u - %s\n", tag->frame_type, frame_types[tag->frame_type]);
-  printf("    Codec ID: %u - %s\n", tag->codec_id, codec_ids[tag->codec_id]);
+  printf("  ,\"VideoData\":{\n");
+  printf("    \"Frame type\": \"%u - %s\",\n", tag->frame_type, frame_types[tag->frame_type]);
+  printf("    \"Codec ID\": \"%u - %s\"},\n", tag->codec_id, codec_ids[tag->codec_id]);
   
   // AVC-specific stuff
   if(tag->codec_id == FLV_CODEC_ID_AVC) {
@@ -199,9 +198,9 @@ struct avc_video_tag* read_avc_video_tag(struct video_tag* video_tag, struct flv
   count = fread_1(&(tag->avc_packet_type));
   count += fread_4s(&(tag->composition_time));
   
-  printf("    AVC video tag:\n");
-  printf("      AVC packet type: %u - %s\n", tag->avc_packet_type, avc_packet_types[tag->avc_packet_type]);
-  printf("      AVC composition time: %i\n", tag->composition_time);
+  printf("    \"AVC video tag\":{\n");
+  printf("      \"AVC packet type\": \"%u - %s\",\n", tag->avc_packet_type, avc_packet_types[tag->avc_packet_type]);
+  printf("      \"AVC composition time\": %i}\n", tag->composition_time);
 
   tag->data = malloc((size_t) data_size - count);
   count = fread(tag->data, 1, (size_t) data_size - count, in);
@@ -286,10 +285,10 @@ int read_header() {
 
 
 void print_general_tag_info(struct flv_tag* tag) {
-  printf("  Data size: %lu\n", (unsigned long) tag->data_size);
-  printf("  Timestamp: %lu\n", (unsigned long) tag->timestamp);
-  printf("  Timestamp extended: %u\n", tag->timestamp_ext);
-  printf("  StreamID: %lu\n", (unsigned long) tag->stream_id);
+  printf("  \"Data size\": %lu,\n", (unsigned long) tag->data_size);
+  printf("  \"Timestamp\": %lu,\n", (unsigned long) tag->timestamp);
+  printf("  \"Timestamp extended\": %u,\n", tag->timestamp_ext);
+  printf("  \"StreamID\": %lu\n", (unsigned long) tag->stream_id);
 }
 
 struct flv_tag* read_tag() {
@@ -312,23 +311,23 @@ struct flv_tag* read_tag() {
   count = fread_3(&(tag->stream_id));  
 
   printf("\n");
-  printf("Prev tag size: %lu\n", (unsigned long) prev_tag_size);
+  printf("{\"Prev tag size\": %lu,\n", (unsigned long) prev_tag_size);
   
-  printf("Tag type: %u - ", tag->tag_type);
+  printf("\"Tag type\": \"%u - ", tag->tag_type);
   switch(tag->tag_type) {
   case TAGTYPE_AUDIODATA:
-    printf("Audio data\n");
+    printf("Audio data\",\n");
     print_general_tag_info(tag);
     tag->data = (void*) read_audio_tag(tag);
     break;
   case TAGTYPE_VIDEODATA:
-    printf("Video data\n");
+    printf("Video data\",\n");
     print_general_tag_info(tag);
     tag->data = malloc((size_t) tag->data_size);
     tag->data = (void*) read_video_tag(tag);
     break;
   case TAGTYPE_SCRIPTDATAOBJECT:
-    printf("Script data object\n");
+    printf("Script data object\",\n");
     print_general_tag_info(tag);
     tag->data = malloc((size_t) tag->data_size);
     count = fread(tag->data, 1, (size_t) tag->data_size, in);
@@ -337,7 +336,7 @@ struct flv_tag* read_tag() {
     printf("Unknown tag type!\n");
     die();
   }
-  
+  printf("},");
   // Did we reach end of file?
   if(feof(in)) {
     return NULL;
